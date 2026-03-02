@@ -5,7 +5,7 @@ description = "Онлайн-магазин на Django"
 authors = [
     {name = "MrAlexFS",email = "alexvarosian859@gmail.com"}
 ]
-license = {text = "MLT"}
+license = {text = "MIT"}
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
