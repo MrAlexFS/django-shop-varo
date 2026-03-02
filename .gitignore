@@ -214,3 +214,6 @@ media/
 static/
 *.log
 local_settings.py
+
+media/
+/media/

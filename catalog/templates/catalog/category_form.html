@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if object %}Редактирование категории{% else %}Новая категория{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas {% if object %}fa-edit{% else %}fa-plus-circle{% endif %} me-2"></i>
+                    {% if object %}Редактировать категорию{% else %}Добавить новую категорию{% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Поле name -->
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">Название *</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger small">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Поле slug -->
+                    <div class="mb-3">
+                        <label for="{{ form.slug.id_for_label }}" class="form-label">Slug *</label>
+                        {{ form.slug }}
+                        <div class="form-text">URL-идентификатор, должен быть уникальным. Можно оставить пустым — заполнится автоматически.</div>
+                        {% if form.slug.errors %}
+                            <div class="text-danger small">{{ form.slug.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Поле description -->
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Описание</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger small">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Поле is_active (чекбокс) -->
+                    <div class="mb-3 form-check">
+                        {{ form.is_active }}
+                        <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                            Активна (отображается на сайте)
+                        </label>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'catalog:category_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i>Назад
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save me-1"></i>Сохранить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
