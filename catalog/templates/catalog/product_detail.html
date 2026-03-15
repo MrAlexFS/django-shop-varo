@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<!-- Хлебные крошки -->
+<nav aria-label="breadcrumb" class="mt-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'catalog:user_catalog' %}">Каталог</a></li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'catalog:category_products' product.category.slug %}">
+                {{ product.category.name }}
+            </a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">{{ product.name }}</li>
+    </ol>
+</nav>
+
+<!-- Основная информация -->
+<div class="row">
+    <!-- Левая колонка: изображение -->
+    <div class="col-md-5 mb-4 mb-md-0">
+        {% if product.image %}
+            <img src="{{ product.image.url }}" class="img-fluid rounded shadow-sm" alt="{{ product.name }}">
+        {% else %}
+            <div class="bg-light d-flex align-items-center justify-content-center rounded shadow-sm" style="height: 300px;">
+                <i class="fas fa-image fa-4x text-muted"></i>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Правая колонка: информация и действия -->
+    <div class="col-md-7">
+        <h1 class="mb-3">{{ product.name }}</h1>
+        <p class="text-muted mb-2">
+            <i class="fas fa-tag me-1"></i> Категория: 
+            <a href="{% url 'catalog:product_list' %}?category={{ product.category.id }}" class="text-decoration-none">
+                {{ product.category.name }}
+            </a>
+        </p>
+
+        <!-- Цена -->
+        <h2 class="text-primary fw-bold mb-3">{{ product.price }} ₽</h2>
+
+        <!-- Наличие -->
+        <p class="mb-2">
+            <i class="fas fa-boxes me-1"></i> Наличие: 
+            {% if product.stock > 0 %}
+                <span class="badge bg-success">В наличии ({{ product.stock }} шт.)</span>
+            {% else %}
+                <span class="badge bg-danger">Нет в наличии</span>
+            {% endif %}
+        </p>
+
+        <!-- Краткое описание (первые 30 слов) -->
+        <div class="my-4">
+            <p class="lead">{{ product.description|truncatewords:30 }}</p>
+        </div>
+
+        <!-- Кнопка добавления в корзину -->
+        <div class="my-4">
+            <form action="{% url 'cart:cart_add' product.id %}" method="post" class="d-inline">
+                {% csrf_token %}
+                <div class="d-flex align-items-center gap-2">
+                    {{ cart_add_form.quantity }}
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-shopping-cart me-2"></i>Добавить в корзину
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Полное описание -->
+<div class="row mt-5">
+    <div class="col-12">
+        <h3 class="border-bottom pb-2">Описание товара</h3>
+        <div class="pt-3">
+            {{ product.description|linebreaks }}
+        </div>
+    </div>
+</div>
+
+<!-- Похожие товары (если есть в контексте) -->
+{% if related_products %}
+<div class="row mt-5">
+    <h3 class="border-bottom pb-2 mb-4">Похожие товары</h3>
+    {% for related in related_products %}
+        <div class="col-md-3 col-sm-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                {% if related.image %}
+                    <img src="{{ related.image.url }}" class="card-img-top" alt="{{ related.name }}" style="height: 180px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-light text-center p-4" style="height: 180px;">
+                        <i class="fas fa-image fa-3x text-muted mt-4"></i>
+                    </div>
+                {% endif %}
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title">
+                        <a href="{% url 'catalog:product_detail' related.slug %}" class="text-decoration-none text-dark">
+                            {{ related.name }}
+                        </a>
+                    </h5>
+                    <p class="card-text fw-bold text-primary mt-auto">{{ related.price }} ₽</p>
+                    <a href="{% url 'catalog:product_detail' related.slug %}" class="btn btn-sm btn-outline-primary mt-2">
+                        Подробнее
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
