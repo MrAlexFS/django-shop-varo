@@ -7,12 +7,12 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.db.models import Count
+from django.shortcuts import get_object_or_404
 
 from .models import Category, Product
 from .forms import CategoryForm, ProductForm
 from cart.forms import CartAddProductForm
-
-from django.shortcuts import get_object_or_404
+from cart.cart import Cart  # импорт класса Cart
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
@@ -143,6 +143,8 @@ class HomeView(TemplateView):
             .order_by('-products_count')[:6]
         context['latest_products'] = Product.objects.filter(is_active=True)\
             .order_by('-created_at')[:8]
+        cart = Cart(self.request)
+        context['cart_product_ids'] = [int(pid) for pid in cart.cart.keys()]
         return context
 
 
@@ -155,6 +157,8 @@ class ProductDetailView(DetailView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        cart = Cart(self.request)
+        context['cart_product_ids'] = [int(pid) for pid in cart.cart.keys()]
         context['cart_add_form'] = CartAddProductForm()
         context['related_products'] = Product.objects.filter(
             category=self.object.category
@@ -181,18 +185,16 @@ class CategoryProductsView(ListView):
     model = Product
     template_name = 'catalog/category_products.html'
     context_object_name = 'products'
-    paginate_by = 12  # количество товаров на одной странице
+    paginate_by = 12
 
     def get_queryset(self):
-        # Получаем категорию по slug из URL. Если категория не найдена или неактивна – 404.
         self.category = get_object_or_404(Category, slug=self.kwargs['slug'], is_active=True)
-        # Возвращаем только активные товары этой категории, отсортированные по умолчанию (например, по названию)
         return Product.objects.filter(category=self.category, is_active=True).select_related('category').order_by('name')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Добавляем объект категории в контекст, чтобы использовать в шаблоне (название, описание и т.д.)
+        cart = Cart(self.request)
+        context['cart_product_ids'] = [int(pid) for pid in cart.cart.keys()]
         context['category'] = self.category
-        # Если хотим поддержать сортировку, сохраняем текущий параметр сортировки из GET
         context['current_sort'] = self.request.GET.get('sort', '')
         return context
