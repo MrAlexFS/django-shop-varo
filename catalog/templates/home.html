@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}VaroTechZone – главная{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-md-8">
+        <h1 class="text-center">Добро пожаловать в VaroTechZone</h1>
+        <p class="text-center lead">Лучшая электроника по лучшим ценам</p>
+    </div>
+</div>
+
+<!-- Блок популярных категорий (если нужен) -->
+{% if categories %}
+    <h2>Популярные категории</h2>
+    <div class="row">
+        {% for category in categories %}
+            <div class="col-md-2">
+                <a href="{% url 'catalog:category_products' category.slug %}" class="text-decoration-none">
+                    <div class="card text-center p-2">
+                        <i class="fas fa-tag fa-2x text-primary"></i>
+                        <h6>{{ category.name }}</h6>
+                    </div>
+                </a>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<!-- Блок новинок (если нужен) -->
+{% if latest_products %}
+    <h2 class="mt-4">Новинки</h2>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+        {% for product in latest_products %}
+            <div class="col">
+                {% include 'catalog/includes/product_card.html' with product=product %}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

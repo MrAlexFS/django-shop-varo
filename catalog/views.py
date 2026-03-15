@@ -1,16 +1,29 @@
 from django.http import HttpResponseRedirect
 from django.db import models
 from django.contrib import messages
-
 from django.shortcuts import render
-
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView, TemplateView
 from django.contrib.messages.views import SuccessMessageMixin
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.db.models import Count
+
 from .models import Category, Product
 from .forms import CategoryForm, ProductForm
+from cart.forms import CartAddProductForm
 
-class CategoryListView(ListView):
+from django.shortcuts import get_object_or_404
+
+
+class StaffRequiredMixin(UserPassesTestMixin):
+    """Миксин для ограничения доступа только персоналу (is_staff)."""
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_staff
+
+
+# ==================== Административные представления (только для персонала) ====================
+
+class CategoryListView(StaffRequiredMixin, ListView):
     model = Category
     template_name = 'catalog/category_list.html'
     context_object_name = 'categories'
@@ -23,40 +36,39 @@ class CategoryListView(ListView):
             queryset = queryset.filter(name__icontains=query)
         return queryset
 
-class CategoryCreateView(SuccessMessageMixin, CreateView):
+
+class CategoryCreateView(StaffRequiredMixin, SuccessMessageMixin, CreateView):
     model = Category
     form_class = CategoryForm
     template_name = 'catalog/category_form.html'
     success_url = reverse_lazy('catalog:category_list')
     success_message = 'Категория "%(name)s" успешно создана'
 
-class CategoryUpdateView(SuccessMessageMixin, UpdateView):
+
+class CategoryUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Category
     form_class = CategoryForm
     template_name = 'catalog/category_form.html'
     success_url = reverse_lazy('catalog:category_list')
     success_message = 'Категория "%(name)s" успешно обновлена'
 
-class CategoryDeleteView(DeleteView):
+
+class CategoryDeleteView(StaffRequiredMixin, DeleteView):
     model = Category
     template_name = 'catalog/category_confirm_delete.html'
     success_url = reverse_lazy('catalog:category_list')
     success_message = 'Категория удалена'
 
     def delete(self, request, *args, **kwargs):
-        # Проверка на наличие связанных товаров
         category = self.get_object()
         if category.products.exists():
-            # Если есть товары, выводим сообщение и не удаляем
-            from django.contrib import messages
             messages.error(request, 'Нельзя удалить категорию, в которой есть товары.')
             return HttpResponseRedirect(self.success_url)
         messages.success(request, self.success_message)
         return super().delete(request, *args, **kwargs)
-    
 
 
-class ProductListView(ListView):
+class ProductListView(StaffRequiredMixin, ListView):
     model = Product
     template_name = 'catalog/product_list.html'
     context_object_name = 'products'
@@ -64,59 +76,123 @@ class ProductListView(ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset().select_related('category')
-        # Фильтрация по категории
         category_id = self.request.GET.get('category')
         if category_id:
             queryset = queryset.filter(category_id=category_id)
 
-        # Поиск по названию или описанию
         query = self.request.GET.get('q')
         if query:
             queryset = queryset.filter(
                 models.Q(name__icontains=query) | models.Q(description__icontains=query)
             )
 
-        # Сортировка
         sort = self.request.GET.get('sort')
         if sort in ['price', 'name', 'created_at']:
             queryset = queryset.order_by(sort)
         elif sort == '-price':
             queryset = queryset.order_by('-price')
-        # По умолчанию сортировка по имени
         else:
             queryset = queryset.order_by('name')
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Передаём список категорий для фильтра
         context['categories'] = Category.objects.filter(is_active=True)
-        # Сохраняем текущие параметры GET для пагинации
         context['current_category'] = self.request.GET.get('category', '')
         context['current_q'] = self.request.GET.get('q', '')
         context['current_sort'] = self.request.GET.get('sort', '')
         return context
 
-class ProductCreateView(SuccessMessageMixin, CreateView):
+
+class ProductCreateView(StaffRequiredMixin, SuccessMessageMixin, CreateView):
     model = Product
     form_class = ProductForm
     template_name = 'catalog/product_form.html'
     success_url = reverse_lazy('catalog:product_list')
     success_message = 'Товар "%(name)s" успешно создан'
 
-class ProductUpdateView(SuccessMessageMixin, UpdateView):
+
+class ProductUpdateView(StaffRequiredMixin, SuccessMessageMixin, UpdateView):
     model = Product
     form_class = ProductForm
     template_name = 'catalog/product_form.html'
     success_url = reverse_lazy('catalog:product_list')
     success_message = 'Товар "%(name)s" успешно обновлен'
 
-class ProductDeleteView(DeleteView):
+
+class ProductDeleteView(StaffRequiredMixin, DeleteView):
     model = Product
     template_name = 'catalog/product_confirm_delete.html'
     success_url = reverse_lazy('catalog:product_list')
     success_message = 'Товар удален'
 
     def delete(self, request, *args, **kwargs):
-        messages.success(request, self.success_message)
+        messages.success(self.request, self.success_message)
         return super().delete(request, *args, **kwargs)
+
+
+# ==================== Публичные представления (доступны всем) ====================
+
+class HomeView(TemplateView):
+    template_name = 'home.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = Category.objects.filter(is_active=True)\
+            .annotate(products_count=Count('products'))\
+            .order_by('-products_count')[:6]
+        context['latest_products'] = Product.objects.filter(is_active=True)\
+            .order_by('-created_at')[:8]
+        return context
+
+
+class ProductDetailView(DetailView):
+    model = Product
+    template_name = 'catalog/product_detail.html'
+    context_object_name = 'product'
+    slug_field = 'slug'
+    slug_url_kwarg = 'slug'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['cart_add_form'] = CartAddProductForm()
+        context['related_products'] = Product.objects.filter(
+            category=self.object.category
+        ).exclude(pk=self.object.pk)[:4]
+        return context
+
+
+class UserCatalogView(TemplateView):
+    template_name = 'catalog/user_catalog.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Корневые категории (родитель = null)
+        context['root_categories'] = Category.objects.filter(
+            parent__isnull=True, is_active=True
+        ).prefetch_related('children')
+        return context
+
+
+class CategoryProductsView(ListView):
+    """
+    Отображает товары конкретной категории. URL: /catalog/category/<slug:slug>/
+    """
+    model = Product
+    template_name = 'catalog/category_products.html'
+    context_object_name = 'products'
+    paginate_by = 12  # количество товаров на одной странице
+
+    def get_queryset(self):
+        # Получаем категорию по slug из URL. Если категория не найдена или неактивна – 404.
+        self.category = get_object_or_404(Category, slug=self.kwargs['slug'], is_active=True)
+        # Возвращаем только активные товары этой категории, отсортированные по умолчанию (например, по названию)
+        return Product.objects.filter(category=self.category, is_active=True).select_related('category').order_by('name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Добавляем объект категории в контекст, чтобы использовать в шаблоне (название, описание и т.д.)
+        context['category'] = self.category
+        # Если хотим поддержать сортировку, сохраняем текущий параметр сортировки из GET
+        context['current_sort'] = self.request.GET.get('sort', '')
+        return context

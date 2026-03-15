@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Каталог товаров{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Каталог товаров</h1>
+
+<div class="row">
+    {% for root in root_categories %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">{{ root.name }}</h4>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% for child in root.children.all %}
+                            <li class="mb-2">
+                                <a href="{% url 'catalog:category_products' child.slug %}">
+                                    {{ child.name }}
+                                </a>
+                            </li>
+                        {% empty %}
+                            <li class="text-muted">Нет подкатегорий</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'catalog:category_products' root.slug %}">
+                        Все товары категории
+                    </a>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-muted">Категории временно отсутствуют.</p>
+    {% endfor %}
+</div>
+{% endblock %}
